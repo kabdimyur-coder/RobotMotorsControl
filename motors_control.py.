@@ -1,21 +1,41 @@
 import serial
 import time
 
-# Подставь свой порт: /dev/ttyUSB0, /dev/ttyACM0 и т.д.
 ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
-time.sleep(2)  # дать контроллеру время на старт
+time.sleep(2)
 
 def send_command(left_speed, right_speed):
-    # Формат команды: "L120R80\n" (пример)
     cmd = f"L{left_speed}R{right_speed}\n"
     ser.write(cmd.encode('ascii'))
 
-# Пример сценария
-send_command(120, 120)  # вперёд
-time.sleep(3)
+# Плавный разгон до 120/120
+target_left, target_right = 120, 120
+step = 10  # шаг увеличения скорости
+delay = 0.1  # задержка между шагами (сек)
 
-send_command(120, 60)   # поворот направо
+current_left, current_right = 0, 0
+while current_left < target_left or current_right < target_right:
+    current_left = min(target_left, current_left + step)
+    current_right = min(target_right, current_right + step)
+    send_command(current_left, current_right)
+    time.sleep(delay)
+
+time.sleep(3)  # едем на полной
+
+# Поворот направо: плавно уменьшаем правый мотор до 60
+target_right = 60
+while current_right > target_right:
+    current_right = max(target_right, current_right - step)
+    send_command(current_left, current_right)
+    time.sleep(delay)
+
 time.sleep(2)
 
-send_command(0, 0)      # стоп
+# Плавная остановка
+while current_left > 0 or current_right > 0:
+    current_left = max(0, current_left - step)
+    current_right = max(0, current_right - step)
+    send_command(current_left, current_right)
+    time.sleep(delay)
+
 ser.close()
